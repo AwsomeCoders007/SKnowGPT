@@ -31,6 +31,11 @@ password = "enter_your_password"
 ```
 Note, loading the DisTreatKG for the first time could take approximately 30 mins to 1 hour depending on your internet connection.
 
+To run SKnowGPT with Mixtral 8x7B model:
+```
+python SKnowGPT_mixtral.py
+```
+
 ## Evaluation
 ### BERTScore Evaluation
 To evaluate your output using BERTScore, navigate to evaluation and open the `BertScore.ipynb` file. Update the name of the input file and name of the output file. The output file will be saved under `evaluation/BERTScore_results`.

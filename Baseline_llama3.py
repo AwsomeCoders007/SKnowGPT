@@ -23,7 +23,6 @@ def final_baseline_l3(text):
     
     return output_all['text']
 
-
 if __name__ == "__main__":
     
     code_start_time = time.time()
@@ -40,7 +39,6 @@ if __name__ == "__main__":
         repetition_penalty=1.1
     )
 
-    missed_qs = [133, 712]
     ## Setting up output file
     with open('./output/baseline_l3.csv', 'w', newline='') as f1:
         writer = csv.writer(f1)
@@ -53,33 +51,32 @@ if __name__ == "__main__":
         data = f.read()
         data = json.loads(data)
         for i,line in enumerate(data):
-            if i+1 in missed_qs:
-                try:
-                    print('--',i+1,'--')
-                    input = line["qustion_output"]
-                    input = input.replace("\n","")
-                    input = input.replace("<OOS>","<EOS>")
-                    input = input.replace(":","") + "<END>"
-                    input_text = re.findall(re1,input)
-                    
-                    output = line["answer_output"]
-                    output = output.replace("\n","")
-                    output = output.replace("<OOS>","<EOS>")
-                    output = output.replace(":","") + "<END>"
-                    output_text = re.findall(re1,output)
-                except:
-                    continue
+            try:
+                print('--',i+1,'--')
+                input = line["qustion_output"]
+                input = input.replace("\n","")
+                input = input.replace("<OOS>","<EOS>")
+                input = input.replace(":","") + "<END>"
+                input_text = re.findall(re1,input)
                 
-                ##Final Answer
-                print("--FINAL ANSWER TIME--")
-                output_all = final_baseline_l3(input_text[0])
-                    
-                ##writing results to file
-                with open('./output/baseline_l3.csv', 'a+', newline='') as f2:
-                    writer = csv.writer(f2)
-                    writer.writerow([i+1, input_text[0], output_text[0], output_all.strip()])
-                    f2.flush()
-    
+                output = line["answer_output"]
+                output = output.replace("\n","")
+                output = output.replace("<OOS>","<EOS>")
+                output = output.replace(":","") + "<END>"
+                output_text = re.findall(re1,output)
+            except:
+                continue
+            
+            ##Final Answer
+            print("--FINAL ANSWER TIME--")
+            output_all = final_baseline_l3(input_text[0])
+                
+            ##writing results to file
+            with open('./output/baseline_l3.csv', 'a+', newline='') as f2:
+                writer = csv.writer(f2)
+                writer.writerow([i+1, input_text[0], output_text[0], output_all.strip()])
+                f2.flush()
+
     question_end_time = time.time()
     
     question_time_in_min = (question_end_time - question_start_time) / float(60)

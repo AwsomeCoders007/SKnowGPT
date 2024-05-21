@@ -34,7 +34,7 @@ def combine_lists(*lists):
         results.append(new_combination)
     return results
 
-def find_shortest_path(start_entity_name, end_entity_name,candidate_list):
+def calculate_shortest_path(start_entity_name, end_entity_name,candidate_list):
     global exist_entity
     exist_entity = {}
     with driver.session() as session:
@@ -84,7 +84,7 @@ def find_shortest_path(start_entity_name, end_entity_name,candidate_list):
 
         return paths,exist_entity
 
-def get_entity_neighbors(entity_name: str,disease_flag) -> List[List[str]]:
+def calculate_neighbor_entitites(entity_name: str,disease_flag) -> List[List[str]]:
     disease = []
     query = """
     MATCH (e:Entity)-[r]->(n)
@@ -113,7 +113,7 @@ def get_entity_neighbors(entity_name: str,disease_flag) -> List[List[str]]:
     
     return neighbor_list,disease
 
-def prompt_path_finding_mx(text):
+def verbalise_path_mx(text):
     template = """<s> [INST]
     Below knowledge graph path information is provided below in entity->relationship->entity format. Convert this information to natural language, respectively. \
     Use single quotation marks for entity name and relation name. 
@@ -131,7 +131,7 @@ def prompt_path_finding_mx(text):
     response_of_KG_path = llm_chain.run(text)
     return response_of_KG_path
 
-def prompt_neighbor_mx(text):
+def verbalise_neighbor_mx(text):
     template = """<s> [INST]
     Below knowledge graph neighbor information is provided in entity->relationship->entity format. Convert each line to a sentence, transforming it into natural language. \
     Use single quotation marks for entity names and relation names. \
@@ -478,31 +478,31 @@ if __name__ == "__main__":
     graph_start_time = time.time()
     #Setting up KG in Neo4j
     print("--Connecting to Neo4j--")
-    uri = "bolt://44.201.89.220:7687"
-    username = "neo4j"
-    password = "knife-deletion-receivers"
+    uri = "enter_your_uri"
+    username = "enter_your_username"     
+    password = "enter_your_password"
 
     driver = GraphDatabase.driver(uri, auth=(username, password), max_connection_lifetime=86400)
     session = driver.session()
 
     ## run this to load entire KG for the 1st time 
-    # session.run("MATCH (n) DETACH DELETE n")# clean all
-    # df = pd.read_csv('./data/DisTreatKG/DisTreatKG_train.txt', sep='\t', header=None, names=['head', 'relation', 'tail'])
+    session.run("MATCH (n) DETACH DELETE n")
+    df = pd.read_csv('./data/DisTreatKG/DisTreatKG_train.txt', sep='\t', header=None, names=['head', 'relation', 'tail'])
 
-    # for index, row in df.iterrows():
-    #     head_name = row['head']
-    #     tail_name = row['tail']
-    #     relation_name = row['relation']
+    for index, row in df.iterrows():
+        head_name = row['head']
+        tail_name = row['tail']
+        relation_name = row['relation']
 
-    #     query = (
-    #         "MERGE (h:Entity { name: $head_name }) "
-    #         "MERGE (t:Entity { name: $tail_name }) "
-    #         "MERGE (h)-[r:`" + relation_name + "`]->(t)"
-    #     )
-    #     try:
-    #         session.run(query, head_name=head_name, tail_name=tail_name, relation_name=relation_name)
-    #     except:
-    #         continue
+        query = (
+            "MERGE (h:Entity { name: $head_name }) "
+            "MERGE (t:Entity { name: $tail_name }) "
+            "MERGE (h)-[r:`" + relation_name + "`]->(t)"
+        )
+        try:
+            session.run(query, head_name=head_name, tail_name=tail_name, relation_name=relation_name)
+        except:
+            continue
     
     graph_end_time = time.time()
     graph_time_in_min = (graph_end_time - graph_start_time) / float(60)
@@ -510,12 +510,12 @@ if __name__ == "__main__":
     
     ##Setting up Mixtral model
     print("--setting up Mixtral--")
-    tokenizer_id = 'mistralai/Mixtral-8x7B-Instruct-v0.1'
-    model_id = 'mistralai/Mixtral-8x7B-Instruct-v0.1'
+    tokenizer = 'mistralai/Mixtral-8x7B-Instruct-v0.1'
+    model_name = 'mistralai/Mixtral-8x7B-Instruct-v0.1'
     device_map = 'auto'
-    tokenizer = AutoTokenizer.from_pretrained(tokenizer_id, use_fast=True)
+    tokenizer = AutoTokenizer.from_pretrained(tokenizer, use_fast=True)
     model = AutoModelForCausalLM.from_pretrained(
-                            model_id,
+                            model_name,
                             torch_dtype=torch.float16,
                             device_map=device_map,
                             trust_remote_code=False,
@@ -588,23 +588,6 @@ if __name__ == "__main__":
             match_50 = []
             entity_embeddings_emb = pd.DataFrame(entity_embeddings["embeddings"])   
 
-            ##Identifying matching entities between Kg and question 
-            # for kg_entity in question_kg:
-                        
-            #     keyword_index = keyword_embeddings["keywords"].index(kg_entity)
-            #     kg_entity_emb = np.array(keyword_embeddings["embeddings"][keyword_index])
-
-            #     cos_similarities = cosine_similarity_manual(entity_embeddings_emb, kg_entity_emb)[0]
-            #     max_index = cos_similarities.argmax()
-                            
-            #     match_kg_i = entity_embeddings["entities"][max_index]
-            #     while match_kg_i.replace(" ","_") in match_kg:
-            #         cos_similarities[max_index] = 0
-            #         max_index = cos_similarities.argmax()
-            #         match_kg_i = entity_embeddings["entities"][max_index]
-
-            #     match_kg.append(match_kg_i.replace(" ","_"))
-
             ##Identifying matching entities between Kg and question - Applying 3 level threshold
             for kg_entity in question_kg:
                 keyword_index = keyword_embeddings["keywords"].index(kg_entity)
@@ -653,7 +636,7 @@ if __name__ == "__main__":
                     while candidate_entity != []:
                         end_entity = candidate_entity[0]
                         candidate_entity.remove(end_entity)                        
-                        paths,exist_entity = find_shortest_path(start_entity, end_entity,candidate_entity)
+                        paths,exist_entity = calculate_shortest_path(start_entity, end_entity,candidate_entity)
                         path_list = []
                         if paths == [''] or paths == []:
                             flag = 1
@@ -695,7 +678,6 @@ if __name__ == "__main__":
                 
                 if len(start_tmp) == 0:
                         result_path = {}
-                        single_path = {}
                 else:
                     if len(start_tmp) == 1:
                         result_path = result_path_list[:5]
@@ -735,14 +717,8 @@ if __name__ == "__main__":
                                 else:
                                     break
 
-                    try:
-                        single_path = result_path_list[0]
-                    except:
-                        single_path = result_path_list
-                    
             else:
-                result_path = {}
-                single_path = {}            
+                result_path = {}            
             
             ##Find neighbour entity using Neo4j
             print("--Find neighbour entity using Neo4j--")
@@ -750,7 +726,7 @@ if __name__ == "__main__":
             neighbor_list_disease = []
             for match_entity in match_kg:
                 disease_flag = 0
-                neighbors,disease = get_entity_neighbors(match_entity,disease_flag)
+                neighbors,disease = calculate_neighbor_entitites(match_entity,disease_flag)
                 neighbor_list.extend(neighbors)
 
                 all_diseases = set()
@@ -764,13 +740,13 @@ if __name__ == "__main__":
                     if len(new_disease) != 0:
                         for disease_entity in new_disease:
                             disease_flag = 1
-                            neighbors,disease = get_entity_neighbors(disease_entity,disease_flag)
+                            neighbors,disease = calculate_neighbor_entitites(disease_entity,disease_flag)
                             disease = [d for d in disease if d not in all_diseases]
                             neighbor_list_disease.extend(neighbors)
                     else:
                         for disease_entity in disease:
                             disease_flag = 1
-                            neighbors,disease = get_entity_neighbors(disease_entity,disease_flag)
+                            neighbors,disease = calculate_neighbor_entitites(disease_entity,disease_flag)
                             disease = [d for d in disease if d not in all_diseases]
                             neighbor_list_disease.extend(neighbors)
             if len(neighbor_list)<=5:
@@ -789,7 +765,7 @@ if __name__ == "__main__":
                         result_new_path.append(path_input)
                     
                     path = "\n".join(result_new_path)
-                    response_of_KG_list_path = prompt_path_finding_mx(path)
+                    response_of_KG_list_path = verbalise_path_mx(path)
                     
             else:
                 response_of_KG_list_path = '{}'
@@ -807,7 +783,7 @@ if __name__ == "__main__":
                 neighbor_input = "\n".join(neighbor_new_list[:5])
             else:
                 neighbor_input = "\n".join(neighbor_new_list)
-            response_of_KG_neighbor = prompt_neighbor_mx(neighbor_input)
+            response_of_KG_neighbor = verbalise_neighbor_mx(neighbor_input)
             
             ## Pruning KG output
             print('--Pruning KG Output--')
@@ -821,14 +797,7 @@ if __name__ == "__main__":
             
             ##Final Answer
             print("--FINAL ANSWER--")
-            # output_all = final_answer_with_dtt_cot1_with_kg_mx(input_text[0],response_of_KG_list_path,response_of_KG_neighbor)
-            # output_all = final_answer_with_dtt_no_cot_with_kg_mx(input_text[0],response_of_KG_list_path,response_of_KG_neighbor)
-            # output_all = final_answer_without_dtt_cot1_no_kg_mx(input_text[0])
-            # output_all = final_answer_without_dtt_no_cot_with_kg_mx(input_text[0],response_of_KG_list_path,response_of_KG_neighbor)
-            # output_all = final_answer_without_dtt_cot1_full_kg_mx(input_text[0],response_of_KG_list_path,response_of_KG_neighbor)
-            # output_all = final_answer_without_dtt_no_cot_no_kg_mx(input_text[0])
             output_all = final_answer_without_dtt_cot1_with_pruned_kg_mx(input_text[0], pruned_kg_outputs)
-            # output_all = final_answer_with_dtt_cot1_with_pruned_kg_mx(input_text[0], pruned_kg_outputs)
                             
             ##writing results to file
             with open('./output/SKnowGPT_output_without_dtt_cot1_pruned_DisTreatKG_threshold_mx.csv', 'a+', newline='') as f4:
